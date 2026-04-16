@@ -21,7 +21,7 @@ def test_run_returns_200_on_success(client):
         resp = client.post("/run")
     assert resp.status_code == 200
     data = resp.get_json()
-    assert data["source_key"] == "exports/b.parquet"
+    assert resp.get_json() == result
 
 
 def test_run_returns_500_on_error(client):
@@ -29,9 +29,10 @@ def test_run_returns_500_on_error(client):
         resp = client.post("/run")
     assert resp.status_code == 500
     data = resp.get_json()
-    assert "error" in data
+    assert data["error"] == "something broke"
 
 
 def test_health_check(client):
     resp = client.get("/health")
     assert resp.status_code == 200
+    assert resp.get_json() == {"status": "ok"}
