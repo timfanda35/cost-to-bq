@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import io
 import boto3
 from .base import ObjectMeta
@@ -10,7 +12,9 @@ class S3Source:
         self._bucket = bucket
         self._prefix = prefix
         kwargs = {"region_name": region}
-        if aws_access_key_id:
+        if aws_access_key_id is not None:
+            if aws_secret_access_key is None:
+                raise ValueError("aws_secret_access_key must be provided with aws_access_key_id")
             kwargs["aws_access_key_id"] = aws_access_key_id
             kwargs["aws_secret_access_key"] = aws_secret_access_key
         self._client = boto3.client("s3", **kwargs)
