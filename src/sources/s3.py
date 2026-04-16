@@ -20,11 +20,13 @@ class S3Source:
         self._client = boto3.client("s3", **kwargs)
 
     def find_latest(self) -> ObjectMeta:
-        resp = self._client.list_objects_v2(Bucket=self._bucket, Prefix=self._prefix)
-        contents = resp.get("Contents")
-        if not contents:
+        paginator = self._client.get_paginator("list_objects_v2")
+        all_objects = []
+        for page in paginator.paginate(Bucket=self._bucket, Prefix=self._prefix):
+            all_objects.extend(page.get("Contents", []))
+        if not all_objects:
             raise FileNotFoundError(f"No objects found under s3://{self._bucket}/{self._prefix}")
-        newest = max(contents, key=lambda o: o["LastModified"])
+        newest = max(all_objects, key=lambda o: o["LastModified"])
         return ObjectMeta(key=newest["Key"], last_modified=newest["LastModified"],
                           size=newest.get("Size", 0))
 

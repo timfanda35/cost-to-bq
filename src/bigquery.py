@@ -13,7 +13,7 @@ def run_load_job(gcs_uri: str, project_id: str, dataset_id: str, table_id: str) 
     )
 
     job = client.load_table_from_uri(gcs_uri, table_ref, job_config=job_config)
-    job.result()  # blocks until complete
+    job.result(timeout=3300)  # blocks until complete
 
     if job.errors:
         raise RuntimeError(f"BigQuery load job failed: {job.errors}")

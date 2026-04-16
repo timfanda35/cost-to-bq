@@ -22,16 +22,35 @@ def test_find_latest_returns_newest_key():
         {"Key": "exports/b.parquet", "LastModified": datetime(2024, 4, 15)},
         {"Key": "exports/c.parquet", "LastModified": datetime(2024, 4, 5)},
     ]
-    with patch.object(source._client, "list_objects_v2", return_value={"Contents": objects}):
+    page_mock = MagicMock()
+    page_mock.paginate.return_value = iter([{"Contents": objects}])
+    with patch.object(source._client, "get_paginator", return_value=page_mock):
         meta = source.find_latest()
     assert meta.key == "exports/b.parquet"
 
 
 def test_find_latest_raises_when_no_objects():
     source = _make_source()
-    with patch.object(source._client, "list_objects_v2", return_value={}):
+    page_mock = MagicMock()
+    page_mock.paginate.return_value = iter([{}])  # page with no Contents
+    with patch.object(source._client, "get_paginator", return_value=page_mock):
         with pytest.raises(FileNotFoundError, match="No objects"):
             source.find_latest()
+
+
+def test_find_latest_handles_pagination():
+    source = _make_source()
+    page1 = {"Contents": [
+        {"Key": "exports/a.parquet", "LastModified": datetime(2024, 4, 10)},
+    ]}
+    page2 = {"Contents": [
+        {"Key": "exports/b.parquet", "LastModified": datetime(2024, 4, 15)},
+    ]}
+    page_mock = MagicMock()
+    page_mock.paginate.return_value = iter([page1, page2])
+    with patch.object(source._client, "get_paginator", return_value=page_mock):
+        meta = source.find_latest()
+    assert meta.key == "exports/b.parquet"  # newest from page 2
 
 
 def test_download_returns_bytesio():

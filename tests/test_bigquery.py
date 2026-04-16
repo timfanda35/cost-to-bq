@@ -35,7 +35,7 @@ def test_load_job_succeeds():
     assert kwargs["job_config"].source_format == bigquery.SourceFormat.PARQUET
     assert kwargs["job_config"].write_disposition == bigquery.WriteDisposition.WRITE_TRUNCATE
     assert kwargs["job_config"].autodetect is True
-    job.result.assert_called_once()
+    job.result.assert_called_once_with(timeout=3300)
 
 
 def test_load_job_raises_on_error():

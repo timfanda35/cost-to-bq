@@ -20,7 +20,6 @@ def test_run_returns_200_on_success(client):
     with patch("main.run_pipeline", return_value=result):
         resp = client.post("/run")
     assert resp.status_code == 200
-    data = resp.get_json()
     assert resp.get_json() == result
 
 
