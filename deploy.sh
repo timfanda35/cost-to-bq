@@ -14,6 +14,10 @@ echo "Building and pushing image..."
 gcloud builds submit --tag "${IMAGE}" .
 
 echo "Deploying to Cloud Run..."
+
+# TODO: For production, move AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+# and AZURE_CONNECTION_STRING to Secret Manager and use --set-secrets instead.
+
 gcloud run deploy "${SERVICE_NAME}" \
   --image "${IMAGE}" \
   --platform managed \
@@ -25,7 +29,7 @@ SOURCE_BUCKET=${SOURCE_BUCKET},\
 SOURCE_PREFIX=${SOURCE_PREFIX:-},\
 GCS_BUCKET=${GCS_BUCKET},\
 GCS_DESTINATION_PREFIX=${GCS_DESTINATION_PREFIX:-},\
-BQ_PROJECT_ID=${PROJECT_ID},\
+BQ_PROJECT_ID=${BQ_PROJECT_ID:-${PROJECT_ID}},\
 BQ_DATASET_ID=${BQ_DATASET_ID},\
 BQ_TABLE_ID=${BQ_TABLE_ID},\
 AWS_REGION=${AWS_REGION:-},\
