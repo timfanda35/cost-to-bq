@@ -2,6 +2,13 @@
 # deploy.sh — deploy to Cloud Run and create/update Cloud Scheduler job
 set -euo pipefail
 
+# Prerequisites — create secrets in Secret Manager before first deploy:
+#   gcloud secrets create billing-loader-aws-key-id --data-file=-       <<< "YOUR_KEY_ID"
+#   gcloud secrets create billing-loader-aws-secret-key --data-file=-   <<< "YOUR_SECRET_KEY"
+#   gcloud secrets create billing-loader-azure-connection-string --data-file=- <<< "YOUR_CONN_STR"
+# Grant access: gcloud secrets add-iam-policy-binding SECRETNAME \
+#   --member="serviceAccount:${SA}" --role="roles/secretmanager.secretAccessor"
+
 PROJECT_ID="${GCP_PROJECT_ID:?set GCP_PROJECT_ID}"
 REGION="${GCP_REGION:-us-central1}"
 SERVICE_NAME="billing-loader"
@@ -14,10 +21,6 @@ echo "Building and pushing image..."
 gcloud builds submit --tag "${IMAGE}" .
 
 echo "Deploying to Cloud Run..."
-
-# TODO: For production, move AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
-# and AZURE_CONNECTION_STRING to Secret Manager and use --set-secrets instead.
-
 gcloud run deploy "${SERVICE_NAME}" \
   --image "${IMAGE}" \
   --platform managed \
@@ -32,10 +35,10 @@ GCS_DESTINATION_PREFIX=${GCS_DESTINATION_PREFIX:-},\
 BQ_PROJECT_ID=${BQ_PROJECT_ID:-${PROJECT_ID}},\
 BQ_DATASET_ID=${BQ_DATASET_ID},\
 BQ_TABLE_ID=${BQ_TABLE_ID},\
-AWS_REGION=${AWS_REGION:-},\
-AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-},\
-AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-},\
-AZURE_CONNECTION_STRING=${AZURE_CONNECTION_STRING:-}"
+AWS_REGION=${AWS_REGION:-}" \
+  --set-secrets "AWS_ACCESS_KEY_ID=billing-loader-aws-key-id:latest,\
+AWS_SECRET_ACCESS_KEY=billing-loader-aws-secret-key:latest,\
+AZURE_CONNECTION_STRING=billing-loader-azure-connection-string:latest"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
   --platform managed --region "${REGION}" \
