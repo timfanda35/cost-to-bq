@@ -66,3 +66,12 @@ def test_azure_missing_connection_string_raises(monkeypatch):
     monkeypatch.delenv("AZURE_CONNECTION_STRING", raising=False)
     with pytest.raises(ValueError, match="AZURE_CONNECTION_STRING"):
         cfg.Config()
+
+
+def test_repr_does_not_expose_credentials(monkeypatch):
+    for k, v in _set_common({"AWS_REGION": "us-east-1", "AWS_ACCESS_KEY_ID": "myid", "AWS_SECRET_ACCESS_KEY": "topsecret"}).items():
+        monkeypatch.setenv(k, v)
+    c = cfg.Config()
+    r = repr(c)
+    assert "topsecret" not in r
+    assert "myid" not in r
