@@ -17,6 +17,12 @@ class Config:
         self.bq_dataset_id = self._require("BQ_DATASET_ID")
         self.bq_table_id = self._require("BQ_TABLE_ID")
 
+        # Initialize all attributes to None first to avoid AttributeError
+        self.aws_region = None
+        self.aws_access_key_id = None
+        self.aws_secret_access_key = None
+        self.azure_connection_string = None
+
         if self.source_type == "s3":
             self.aws_region = self._require("AWS_REGION")
             self.aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
@@ -24,9 +30,16 @@ class Config:
         else:
             self.azure_connection_string = self._require("AZURE_CONNECTION_STRING")
 
+    def __repr__(self) -> str:
+        return (
+            f"Config(source_type={self.source_type!r}, "
+            f"source_bucket={self.source_bucket!r}, "
+            f"gcs_bucket={self.gcs_bucket!r})"
+        )
+
     @staticmethod
     def _require(name: str) -> str:
         val = os.environ.get(name)
         if not val:
-            raise ValueError(f"Required env var {name!r} is not set")
+            raise ValueError(f"Required env var {name!r} is not set or is empty")
         return val
