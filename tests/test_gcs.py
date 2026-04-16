@@ -31,5 +31,6 @@ def test_upload_rewinds_buffer():
         upload_to_gcs(buf, gcs_bucket="dest-bucket", dest_blob_name="billing/x.parquet")
 
     # rewind=True in the call is sufficient; validate the call was made
+    blob_mock.upload_from_file.assert_called_once()
     _, kwargs = blob_mock.upload_from_file.call_args
     assert kwargs.get("rewind") is True
