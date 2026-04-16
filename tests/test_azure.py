@@ -1,4 +1,5 @@
 import io
+import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 from src.sources.azure import AzureSource
@@ -35,7 +36,6 @@ def test_find_latest_returns_newest_key():
 def test_find_latest_raises_when_empty():
     source = _make_source()
     with patch.object(source._container_client, "list_blobs", return_value=iter([])):
-        import pytest
         with pytest.raises(FileNotFoundError, match="No blobs"):
             source.find_latest()
 
