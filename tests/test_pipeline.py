@@ -50,6 +50,8 @@ def test_pipeline_s3_success(monkeypatch):
     )
     assert result["source_key"] == "exports/b.parquet"
     assert result["gcs_uri"] == "gs://dest-bucket/billing/b.parquet"
+    assert result["last_modified"] == "2024-04-15T00:00:00+00:00"
+    assert result["bq_table"] == "my-project.billing.daily"
 
 
 def test_pipeline_azure_success(monkeypatch):
@@ -73,4 +75,7 @@ def test_pipeline_azure_success(monkeypatch):
          patch("src.pipeline.run_load_job"):
         result = run_pipeline()
 
+    az_source.find_latest.assert_called_once()
+    az_source.download.assert_called_once_with("exports/b.parquet")
     assert result["source_key"] == "exports/b.parquet"
+    assert result["bq_table"] == "my-project.billing.daily"
