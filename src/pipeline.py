@@ -1,6 +1,5 @@
 from src.config import Config
 from src.sources.s3 import S3Source
-from src.sources.azure import AzureSource
 from src.gcs import upload_to_gcs
 from src.bigquery import run_load_job
 
@@ -8,21 +7,13 @@ from src.bigquery import run_load_job
 def run_pipeline() -> dict:
     cfg = Config()
 
-    # Build source client
-    if cfg.source_type == "s3":
-        source = S3Source(
-            bucket=cfg.source_bucket,
-            prefix=cfg.source_prefix,
-            region=cfg.aws_region,
-            aws_access_key_id=cfg.aws_access_key_id,
-            aws_secret_access_key=cfg.aws_secret_access_key,
-        )
-    else:
-        source = AzureSource(
-            container=cfg.source_bucket,
-            prefix=cfg.source_prefix,
-            connection_string=cfg.azure_connection_string,
-        )
+    source = S3Source(
+        bucket=cfg.source_bucket,
+        prefix=cfg.source_prefix,
+        region=cfg.aws_region,
+        aws_access_key_id=cfg.aws_access_key_id,
+        aws_secret_access_key=cfg.aws_secret_access_key,
+    )
 
     # Discover & download latest file
     meta = source.find_latest()
