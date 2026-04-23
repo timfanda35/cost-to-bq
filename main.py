@@ -2,12 +2,13 @@ import logging
 import os
 from dotenv import load_dotenv
 load_dotenv()
+from src.log import configure_logging
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from src.pipeline import run_pipeline
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
@@ -25,12 +26,15 @@ def health():
 
 @app.post("/run")
 def run(body: RunRequest = RunRequest()):
+    logger.info("request.received", extra={
+        "log_event": "request.received",
+        "export_name": body.export_name,
+        "partition": body.partition,
+    })
     try:
         result = run_pipeline(export_name=body.export_name, partition=body.partition)
-        logger.info("Pipeline complete: %s", result)
         return result
     except Exception as exc:
-        logger.exception("Pipeline failed")
         return JSONResponse(status_code=500, content={"error": str(exc)})
 
 

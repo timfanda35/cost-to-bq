@@ -37,6 +37,7 @@ Copy `.env.example` to `.env` and fill in the values.
 | `AWS_ACCESS_KEY_ID` | No | — | AWS key ID; uses instance role if omitted |
 | `AWS_SECRET_ACCESS_KEY` | No | — | Required if `AWS_ACCESS_KEY_ID` is set |
 | `PORT` | No | `8080` | HTTP port for the uvicorn server |
+| `LOG_LEVEL` | No | `INFO` | Python log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 ## Local Development
 
@@ -131,6 +132,25 @@ Trigger a manual run:
 ```bash
 gcloud scheduler jobs run billing-loader-daily --location "${GCP_REGION:-us-central1}"
 ```
+
+## Observability
+
+The service emits structured JSON logs to stdout. On Cloud Run these are captured automatically in Google Cloud Logging with queryable `jsonPayload` fields.
+
+Every log line includes `log_event`, `run_id`, and `export_name`. Useful filters:
+
+```
+# Full timeline for one pipeline run
+jsonPayload.run_id="20260423-1745400000"
+
+# Audit log: every BQ partition written (includes output_rows and output_bytes)
+jsonPayload.log_event="bq.job.complete"
+
+# Find all periods that were skipped (no parquet files in S3)
+jsonPayload.log_event="period.skipped"
+```
+
+Each file upload emits a `gcs.file.uploaded` event with `s3_key` and `gcs_uri`. The BigQuery job ID is logged immediately on submission (`bq.job.submitted`) so you can look up the job in the BQ console even if the run is still in progress.
 
 ## API Endpoints
 

@@ -1,3 +1,4 @@
+import logging
 from datetime import date, datetime, timezone
 from unittest.mock import MagicMock, call, patch
 from src.pipeline import run_pipeline, billing_periods
@@ -71,7 +72,7 @@ def test_pipeline_processes_three_billing_periods(monkeypatch):
     ]
     s3_source.stream.return_value = stream_mock
 
-    def gcs_side_effect(stream, gcs_bucket, dest_blob_name):
+    def gcs_side_effect(stream, gcs_bucket, dest_blob_name, **kwargs):
         return f"gs://{gcs_bucket}/{dest_blob_name}"
 
     with patch("src.pipeline.datetime") as mock_dt, \
@@ -97,7 +98,7 @@ def test_pipeline_processes_three_billing_periods(monkeypatch):
     for i, partition in enumerate(partitions):
         assert f"my-export/data/{expected_run_id}/{partition}/part-0.parquet" in gcs_calls[i]
 
-    # verify BigQuery called with wildcard + partition decorator dates
+    # verify BigQuery called with wildcard + partition decorator dates + context fields
     assert mock_bq.call_count == 3
     bq_calls = mock_bq.call_args_list
     assert bq_calls[0].kwargs["partition_date"] == date(2026, 2, 1)
@@ -105,6 +106,8 @@ def test_pipeline_processes_three_billing_periods(monkeypatch):
     assert bq_calls[2].kwargs["partition_date"] == date(2026, 4, 1)
     for c in bq_calls:
         assert c.kwargs["gcs_uri"].endswith("/*.parquet")
+        assert c.kwargs["run_id"] == expected_run_id
+        assert c.kwargs["export_name"] == "my-export"
 
 
 def test_pipeline_result_contains_per_period_info(monkeypatch):
@@ -130,3 +133,54 @@ def test_pipeline_result_contains_per_period_info(monkeypatch):
         assert period_result["files"] == 2
         assert len(period_result["gcs_uris"]) == 2
         assert "partition" in period_result
+
+
+def test_pipeline_logs_started_and_complete(monkeypatch, caplog):
+    for k, v in _make_env().items():
+        monkeypatch.setenv(k, v)
+
+    fixed_now = datetime(2026, 4, 23, 12, 0, 0, tzinfo=timezone.utc)
+    expected_run_id = f"20260423-{int(fixed_now.timestamp())}"
+    s3_source = MagicMock()
+    s3_source.list_partition.return_value = [_make_obj("BILLING_PERIOD=2026-04", "part-0.parquet")]
+
+    with caplog.at_level(logging.INFO, logger="src.pipeline"), \
+         patch("src.pipeline.datetime") as mock_dt, \
+         patch("src.pipeline.S3Source", return_value=s3_source), \
+         patch("src.pipeline.upload_to_gcs", return_value="gs://dest-bucket/some/path"), \
+         patch("src.pipeline.run_load_job"):
+        mock_dt.now.return_value = fixed_now
+        run_pipeline()
+
+    started = [r for r in caplog.records if getattr(r, "log_event", None) == "pipeline.started"]
+    assert len(started) == 1
+    assert started[0].run_id == expected_run_id
+    assert "2026-02" in started[0].periods
+    assert "2026-04" in started[0].periods
+
+    complete = [r for r in caplog.records if getattr(r, "log_event", None) == "pipeline.complete"]
+    assert len(complete) == 1
+    assert complete[0].periods_loaded == 3
+    assert complete[0].periods_skipped == 0
+
+
+def test_pipeline_logs_period_skipped(monkeypatch, caplog):
+    for k, v in _make_env().items():
+        monkeypatch.setenv(k, v)
+
+    fixed_now = datetime(2026, 4, 23, 12, 0, 0, tzinfo=timezone.utc)
+    s3_source = MagicMock()
+    s3_source.list_partition.side_effect = FileNotFoundError("no files")
+
+    with caplog.at_level(logging.WARNING, logger="src.pipeline"), \
+         patch("src.pipeline.datetime") as mock_dt, \
+         patch("src.pipeline.S3Source", return_value=s3_source), \
+         patch("src.pipeline.upload_to_gcs"), \
+         patch("src.pipeline.run_load_job"):
+        mock_dt.now.return_value = fixed_now
+        run_pipeline()
+
+    skipped = [r for r in caplog.records if getattr(r, "log_event", None) == "period.skipped"]
+    assert len(skipped) == 3
+    assert all(r.reason == "no_parquet_files" for r in skipped)
+    assert {r.partition for r in skipped} == {"2026-02", "2026-03", "2026-04"}

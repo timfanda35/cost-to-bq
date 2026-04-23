@@ -44,6 +44,39 @@ S3 (CUR Hive partitions)  →  GCS (staging)  →  BigQuery (partitioned WRITE_T
 
 **Source abstraction:** `src/sources/base.py` defines `ObjectMeta` and was designed for multiple source types. Only `S3Source` is implemented.
 
+## Logging
+
+Structured JSON logging is emitted to stdout via `python-json-logger`. Cloud Run captures it automatically in Google Cloud Logging where `jsonPayload` fields are queryable.
+
+Every log line includes `log_event` (dotted name), `run_id`, and `export_name`. Key events:
+
+| `log_event` | Level | When |
+|---|---|---|
+| `request.received` | INFO | Start of `POST /run` |
+| `pipeline.started` | INFO | After run_id generated; includes `periods` list |
+| `period.started` / `period.files_listed` / `period.complete` | INFO | Per billing period |
+| `period.skipped` | WARNING | S3 partition has no parquet files; includes `reason: "no_parquet_files"` |
+| `gcs.file.uploaded` | INFO | After each file uploaded; includes `s3_key`, `gcs_uri` |
+| `bq.job.submitted` | INFO | Immediately after BQ job created; includes `job_id` |
+| `bq.job.complete` | INFO | After `job.result()` returns; includes `output_rows`, `output_bytes` |
+| `bq.job.failed` | ERROR | Before `RuntimeError` is raised; includes `job_id`, `errors` |
+| `pipeline.complete` | INFO | After all periods; includes `periods_loaded`, `periods_skipped`, `duration_seconds` |
+| `pipeline.failed` | ERROR | Any unhandled exception; re-raises after logging |
+
+Useful Cloud Logging filters:
+```
+# Full timeline for one run
+jsonPayload.run_id="20260423-xxx"
+
+# Audit: every BQ partition loaded (rows, bytes)
+jsonPayload.log_event="bq.job.complete"
+
+# All skipped periods
+jsonPayload.log_event="period.skipped"
+```
+
+Set `LOG_LEVEL=DEBUG` to lower the root log level (default `INFO`).
+
 ## Notes
 
 - Tests use `fastapi.testclient.TestClient` (requires `httpx` from `requirements-dev.txt`) and mock at the module boundary (`patch("main.run_pipeline")`)
