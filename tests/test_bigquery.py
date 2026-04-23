@@ -1,8 +1,9 @@
 from datetime import date
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
 from google.cloud import bigquery
-from src.bigquery import run_load_job
+from src.bigquery import run_load_job, _SCHEMA_PATH
 
 
 def _mock_job(error=None):
@@ -31,7 +32,9 @@ def test_load_job_succeeds():
     assert args[1] == "my-project.billing.daily"
     assert kwargs["job_config"].source_format == bigquery.SourceFormat.PARQUET
     assert kwargs["job_config"].write_disposition == bigquery.WriteDisposition.WRITE_TRUNCATE
-    assert kwargs["job_config"].autodetect is True
+    assert kwargs["job_config"].time_partitioning.field == "bill_billing_period_start_date"
+    assert kwargs["job_config"].clustering_fields == ["line_item_usage_start_date"]
+    bq_client.schema_from_json.assert_called_once_with(_SCHEMA_PATH)
     job.result.assert_called_once_with(timeout=3300)
 
 

@@ -1,5 +1,8 @@
 from datetime import date
+from pathlib import Path
 from google.cloud import bigquery
+
+_SCHEMA_PATH = Path(__file__).parent / "bq_schema" / "aws-cur2-parquet.json"
 
 
 def run_load_job(
@@ -21,10 +24,13 @@ def run_load_job(
     else:
         table_ref = f"{project_id}.{dataset_id}.{table_id}"
 
+    schema = client.schema_from_json(_SCHEMA_PATH)
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.PARQUET,
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        autodetect=True,
+        schema=schema,
+        time_partitioning=bigquery.TimePartitioning(field="bill_billing_period_start_date"),
+        clustering_fields=["line_item_usage_start_date"],
     )
 
     job = client.load_table_from_uri(gcs_uri, table_ref, job_config=job_config)
