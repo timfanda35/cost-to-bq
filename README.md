@@ -135,9 +135,30 @@ gcloud scheduler jobs run billing-loader-daily --location "${GCP_REGION:-us-cent
 
 ## Observability
 
-The service emits structured JSON logs to stdout. On Cloud Run these are captured automatically in Google Cloud Logging with queryable `jsonPayload` fields.
+The service emits structured JSON logs to stdout via `python-json-logger`. On Cloud Run these are captured automatically in Google Cloud Logging with queryable `jsonPayload` fields.
 
-Every log line includes `log_event`, `run_id`, and `export_name`. Useful filters:
+Every log line includes `log_event` (dotted name), `run_id`, and `export_name`.
+
+### Log events
+
+| `log_event` | Level | When |
+|---|---|---|
+| `request.received` | INFO | Start of `POST /run` |
+| `pipeline.started` | INFO | After run_id generated; includes `periods` list |
+| `period.started` / `period.files_listed` / `period.complete` | INFO | Per billing period |
+| `period.skipped` | WARNING | S3 partition has no parquet files; includes `reason: "no_parquet_files"` |
+| `gcs.file.uploaded` | INFO | After each file uploaded; includes `s3_key`, `gcs_uri` |
+| `bq.job.submitted` | INFO | Immediately after BQ job created; includes `job_id` |
+| `bq.job.complete` | INFO | After `job.result()` returns; includes `output_rows`, `output_bytes` |
+| `bq.job.failed` | ERROR | Before `RuntimeError` is raised; includes `job_id`, `errors` |
+| `pipeline.complete` | INFO | After all periods; includes `periods_loaded`, `periods_skipped`, `duration_seconds` |
+| `pipeline.failed` | ERROR | Any unhandled exception; re-raises after logging |
+
+The BigQuery job ID is logged at `bq.job.submitted` so you can look up the job in the BQ console even while the run is still in progress.
+
+Set `LOG_LEVEL=DEBUG` to lower the root log level (default `INFO`).
+
+### Useful Cloud Logging filters
 
 ```
 # Full timeline for one pipeline run
@@ -149,8 +170,6 @@ jsonPayload.log_event="bq.job.complete"
 # Find all periods that were skipped (no parquet files in S3)
 jsonPayload.log_event="period.skipped"
 ```
-
-Each file upload emits a `gcs.file.uploaded` event with `s3_key` and `gcs_uri`. The BigQuery job ID is logged immediately on submission (`bq.job.submitted`) so you can look up the job in the BQ console even if the run is still in progress.
 
 ## API Endpoints
 
