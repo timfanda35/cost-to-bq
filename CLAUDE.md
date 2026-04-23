@@ -26,23 +26,24 @@ pytest tests/test_pipeline.py::test_run_pipeline_success
 This is a FastAPI service that runs as a Cloud Run job, triggered daily by Cloud Scheduler. It implements a single ETL pipeline:
 
 ```
-S3  →  GCS (staging)  →  BigQuery (WRITE_TRUNCATE)
+S3 (CUR Hive partitions)  →  GCS (staging)  →  BigQuery (partitioned WRITE_TRUNCATE)
 ```
 
 **Request flow:**
-- `POST /run` → `main.py` → `src/pipeline.py::run_pipeline()` → `S3Source.find_latest()` + `S3Source.download()` → `upload_to_gcs()` → `run_load_job()`
+- `POST /run` → `main.py` → `src/pipeline.py::run_pipeline()` → `billing_periods()` → per period: `S3Source.list_partition()` → `S3Source.stream()` → `upload_to_gcs()` → `run_load_job(partition_date=...)`
 - `Config` reads all env vars at pipeline start and fails fast if any required var is missing
 
 **Key behaviors:**
 - Only `SOURCE_TYPE=s3` is supported; `Config.__init__` raises `ValueError` for any other value (Azure support was removed)
-- BigQuery loads use `WRITE_TRUNCATE` + `autodetect=True` — the entire target table is replaced on each run
-- GCS acts purely as a staging area; the most recently modified file in the S3 prefix is always loaded
+- Each run loads **3 billing periods**: the current month and the previous two, computed by `billing_periods()` in `src/pipeline.py`
+- S3 paths follow the AWS CUR Hive-partition layout: `{SOURCE_PREFIX}/{EXPORT_NAME}/data/BILLING_PERIOD=YYYY-MM/`; all `.parquet` files in each partition are loaded
+- BigQuery loads target a date partition decorator (`table$YYYYMMDD`) with `WRITE_TRUNCATE` + `autodetect=True`, replacing only that month's partition
+- GCS staging path includes a `run_id` timestamp component: `{GCS_DESTINATION_PREFIX}/{EXPORT_NAME}/data/{run_id}/BILLING_PERIOD=YYYY-MM/`
 - `S3Source` uses instance role credentials if `AWS_ACCESS_KEY_ID` is not set
 
 **Source abstraction:** `src/sources/base.py` defines `ObjectMeta` and was designed for multiple source types. Only `S3Source` is implemented.
 
 ## Notes
 
-- The README still mentions Flask/gunicorn — the service was migrated to FastAPI/uvicorn; README is outdated in that regard
 - Tests use `fastapi.testclient.TestClient` (requires `httpx` from `requirements-dev.txt`) and mock at the module boundary (`patch("main.run_pipeline")`)
 - The `PORT` env var controls the listen port (default `8080`); the Dockerfile passes it via `--port` to uvicorn

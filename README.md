@@ -1,14 +1,14 @@
 # billing-loader
 
-A Flask service that extracts the latest billing file from AWS S3 or Azure Blob Storage, stages it in Google Cloud Storage (GCS), and loads it into BigQuery. Designed to run on Cloud Run, triggered daily by Cloud Scheduler.
+A FastAPI service that extracts billing files from AWS S3 (Cost and Usage Reports in Hive-partitioned format), stages them in Google Cloud Storage (GCS), and loads them into BigQuery. Designed to run on Cloud Run, triggered daily by Cloud Scheduler.
 
 ## Architecture
 
 ```
-S3 / Azure Blob  →  GCS (staging)  →  BigQuery (WRITE_TRUNCATE)
+S3 (CUR Hive partitions)  →  GCS (staging)  →  BigQuery (partitioned WRITE_TRUNCATE)
 ```
 
-Each run finds the most recently modified file in the source, uploads it to GCS, then replaces the target BigQuery table entirely.
+Each run loads **3 billing periods** (current month + previous two). For each period it finds all `.parquet` files under the CUR Hive partition path, uploads them to GCS, then replaces that month's BigQuery partition.
 
 ## Prerequisites
 
@@ -24,24 +24,24 @@ Copy `.env.example` to `.env` and fill in the values.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `SOURCE_TYPE` | Yes | — | `s3` or `azure` |
-| `SOURCE_BUCKET` | Yes | — | S3 bucket name or Azure container name |
-| `SOURCE_PREFIX` | No | `""` | Path prefix to filter source objects |
+| `SOURCE_TYPE` | Yes | — | Must be `s3` |
+| `SOURCE_BUCKET` | Yes | — | S3 bucket name |
+| `SOURCE_PREFIX` | No | `""` | Path prefix in the bucket before the export name |
+| `EXPORT_NAME` | Yes | — | CUR export name; forms the Hive path `{SOURCE_PREFIX}/{EXPORT_NAME}/data/BILLING_PERIOD=YYYY-MM/` |
 | `GCS_BUCKET` | Yes | — | GCS staging bucket name |
 | `GCS_DESTINATION_PREFIX` | No | `""` | Path prefix in GCS (e.g. `billing/`) |
 | `BQ_PROJECT_ID` | Yes | — | GCP project for BigQuery |
 | `BQ_DATASET_ID` | Yes | — | BigQuery dataset name |
-| `BQ_TABLE_ID` | Yes | — | BigQuery table name |
-| `AWS_REGION` | Yes (S3) | — | AWS region (e.g. `us-east-1`) |
+| `BQ_TABLE_ID` | Yes | — | BigQuery table name (must be date-partitioned) |
+| `AWS_REGION` | Yes | — | AWS region (e.g. `us-east-1`) |
 | `AWS_ACCESS_KEY_ID` | No | — | AWS key ID; uses instance role if omitted |
 | `AWS_SECRET_ACCESS_KEY` | No | — | Required if `AWS_ACCESS_KEY_ID` is set |
-| `AZURE_CONNECTION_STRING` | Yes (Azure) | — | Full Azure Blob Storage connection string |
-| `PORT` | No | `8080` | HTTP port for the Flask server |
+| `PORT` | No | `8080` | HTTP port for the uvicorn server |
 
 ## Local Development
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 # Copy and fill in environment variables
 cp .env.example .env
@@ -57,7 +57,7 @@ curl http://localhost:8080/health
 # {"status": "ok"}
 
 curl -X POST http://localhost:8080/run
-# {"source_key": "...", "last_modified": "...", "gcs_uri": "gs://...", "bq_table": "project.dataset.table"}
+# {"run_id": "20240115-1705300800", "periods": [...], "bq_table": "project.dataset.table"}
 ```
 
 ## Running Tests
@@ -74,10 +74,9 @@ pytest
 ```bash
 echo -n "YOUR_AWS_KEY_ID" | gcloud secrets create billing-loader-aws-key-id --data-file=-
 echo -n "YOUR_AWS_SECRET" | gcloud secrets create billing-loader-aws-secret-key --data-file=-
-echo -n "YOUR_AZURE_CONN_STR" | gcloud secrets create billing-loader-azure-connection-string --data-file=-
 
 # Grant the service account access to each secret
-for SECRET in billing-loader-aws-key-id billing-loader-aws-secret-key billing-loader-azure-connection-string; do
+for SECRET in billing-loader-aws-key-id billing-loader-aws-secret-key; do
   gcloud secrets add-iam-policy-binding $SECRET \
     --member="serviceAccount:${SERVICE_ACCOUNT}" \
     --role="roles/secretmanager.secretAccessor"
@@ -97,8 +96,8 @@ gcloud run deploy billing-loader \
   --region "${GCP_REGION:-us-central1}" \
   --no-allow-unauthenticated \
   --service-account "${SERVICE_ACCOUNT}" \
-  --set-env-vars "SOURCE_TYPE=${SOURCE_TYPE},SOURCE_BUCKET=${SOURCE_BUCKET},SOURCE_PREFIX=${SOURCE_PREFIX:-},GCS_BUCKET=${GCS_BUCKET},GCS_DESTINATION_PREFIX=${GCS_DESTINATION_PREFIX:-},BQ_PROJECT_ID=${BQ_PROJECT_ID},BQ_DATASET_ID=${BQ_DATASET_ID},BQ_TABLE_ID=${BQ_TABLE_ID},AWS_REGION=${AWS_REGION:-}" \
-  --set-secrets "AWS_ACCESS_KEY_ID=billing-loader-aws-key-id:latest,AWS_SECRET_ACCESS_KEY=billing-loader-aws-secret-key:latest,AZURE_CONNECTION_STRING=billing-loader-azure-connection-string:latest"
+  --set-env-vars "SOURCE_TYPE=s3,SOURCE_BUCKET=${SOURCE_BUCKET},SOURCE_PREFIX=${SOURCE_PREFIX:-},EXPORT_NAME=${EXPORT_NAME},GCS_BUCKET=${GCS_BUCKET},GCS_DESTINATION_PREFIX=${GCS_DESTINATION_PREFIX:-},BQ_PROJECT_ID=${BQ_PROJECT_ID},BQ_DATASET_ID=${BQ_DATASET_ID},BQ_TABLE_ID=${BQ_TABLE_ID},AWS_REGION=${AWS_REGION}" \
+  --set-secrets "AWS_ACCESS_KEY_ID=billing-loader-aws-key-id:latest,AWS_SECRET_ACCESS_KEY=billing-loader-aws-secret-key:latest"
 ```
 
 **3. Create the Cloud Scheduler job:**
@@ -134,13 +133,20 @@ Returns service health status.
 
 ### `POST /run`
 
-Runs the ETL pipeline. Returns metadata about the loaded file on success.
+Runs the ETL pipeline for the current and previous two billing months. Returns a summary per period.
 
 ```json
 {
-  "source_key": "exports/2024-01-15-billing.parquet",
-  "last_modified": "2024-01-15T06:00:00+00:00",
-  "gcs_uri": "gs://my-staging-bucket/billing/2024-01-15-billing.parquet",
+  "run_id": "20240115-1705300800",
+  "periods": [
+    {
+      "partition": "BILLING_PERIOD=2023-11",
+      "files": 3,
+      "gcs_uris": ["gs://my-bucket/billing/my-export/data/.../file.parquet"]
+    },
+    {"partition": "BILLING_PERIOD=2023-12", "files": 3, "gcs_uris": ["..."]},
+    {"partition": "BILLING_PERIOD=2024-01", "files": 3, "gcs_uris": ["..."]}
+  ],
   "bq_table": "my-project.billing.daily_costs"
 }
 ```
