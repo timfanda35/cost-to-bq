@@ -9,6 +9,7 @@ class Config:
 
         self.source_bucket = self._require("SOURCE_BUCKET")
         self.source_prefix = os.environ.get("SOURCE_PREFIX", "")
+        self.export_name = self._require("EXPORT_NAME")
 
         self.gcs_bucket = self._require("GCS_BUCKET")
         self.gcs_destination_prefix = os.environ.get("GCS_DESTINATION_PREFIX", "")

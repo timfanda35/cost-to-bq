@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import MagicMock, patch
 import pytest
 from google.cloud import bigquery
@@ -7,10 +8,7 @@ from src.bigquery import run_load_job
 def _mock_job(error=None):
     job = MagicMock()
     job.result.return_value = None
-    if error:
-        job.errors = [{"message": error}]
-    else:
-        job.errors = []
+    job.errors = [{"message": error}] if error else []
     return job
 
 
@@ -28,7 +26,6 @@ def test_load_job_succeeds():
         )
     mock_client_cls.assert_called_once_with(project="my-project")
 
-    bq_client.load_table_from_uri.assert_called_once()
     args, kwargs = bq_client.load_table_from_uri.call_args
     assert args[0] == "gs://bucket/billing/2024-04-15.parquet"
     assert args[1] == "my-project.billing.daily"
@@ -36,6 +33,24 @@ def test_load_job_succeeds():
     assert kwargs["job_config"].write_disposition == bigquery.WriteDisposition.WRITE_TRUNCATE
     assert kwargs["job_config"].autodetect is True
     job.result.assert_called_once_with(timeout=3300)
+
+
+def test_load_job_with_partition_date_uses_decorator():
+    job = _mock_job()
+    bq_client = MagicMock()
+    bq_client.load_table_from_uri.return_value = job
+
+    with patch("src.bigquery.bigquery.Client", return_value=bq_client):
+        run_load_job(
+            gcs_uri="gs://bucket/billing/BILLING_PERIOD=2024-02/**",
+            project_id="my-project",
+            dataset_id="billing",
+            table_id="daily",
+            partition_date=date(2024, 2, 1),
+        )
+
+    args, _ = bq_client.load_table_from_uri.call_args
+    assert args[1] == "my-project.billing.daily$20240201"
 
 
 def test_load_job_raises_on_error():

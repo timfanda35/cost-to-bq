@@ -1,10 +1,25 @@
+from datetime import date
 from google.cloud import bigquery
 
 
-def run_load_job(gcs_uri: str, project_id: str, dataset_id: str, table_id: str) -> None:
-    """Load a parquet file from GCS into BigQuery (WRITE_TRUNCATE)."""
+def run_load_job(
+    gcs_uri: str,
+    project_id: str,
+    dataset_id: str,
+    table_id: str,
+    partition_date: date | None = None,
+) -> None:
+    """Load parquet file(s) from GCS into BigQuery (WRITE_TRUNCATE).
+
+    When partition_date is given the load targets that specific date partition
+    using a BigQuery partition decorator (table$YYYYMMDD), replacing only that
+    partition rather than the entire table.
+    """
     client = bigquery.Client(project=project_id)
-    table_ref = f"{project_id}.{dataset_id}.{table_id}"
+    if partition_date:
+        table_ref = f"{project_id}.{dataset_id}.{table_id}${partition_date.strftime('%Y%m%d')}"
+    else:
+        table_ref = f"{project_id}.{dataset_id}.{table_id}"
 
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.PARQUET,

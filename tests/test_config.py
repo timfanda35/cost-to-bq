@@ -8,6 +8,7 @@ def _set_common(extra=None):
         "SOURCE_TYPE": "s3",
         "SOURCE_BUCKET": "my-bucket",
         "SOURCE_PREFIX": "exports/",
+        "EXPORT_NAME": "my-export",
         "GCS_BUCKET": "gcs-bucket",
         "GCS_DESTINATION_PREFIX": "billing/",
         "BQ_PROJECT_ID": "my-project",
@@ -25,6 +26,17 @@ def test_config_loads_s3(monkeypatch):
     c = cfg.Config()
     assert c.source_type == "s3"
     assert c.aws_region == "us-east-1"
+    assert c.export_name == "my-export"
+
+
+def test_missing_export_name_raises(monkeypatch):
+    env = _set_common({"AWS_REGION": "us-east-1"})
+    env.pop("EXPORT_NAME")
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("EXPORT_NAME", raising=False)
+    with pytest.raises(ValueError, match="EXPORT_NAME"):
+        cfg.Config()
 
 
 def test_missing_source_type_raises(monkeypatch):

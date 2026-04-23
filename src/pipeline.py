@@ -1,7 +1,28 @@
+from datetime import date, datetime, timezone
+
 from src.config import Config
 from src.sources.s3 import S3Source
 from src.gcs import upload_to_gcs
 from src.bigquery import run_load_job
+
+
+def billing_periods(today: date | None = None) -> list[date]:
+    """Return the first day of the current month and the previous two months."""
+    if today is None:
+        today = date.today()
+    periods = []
+    for offset in (2, 1, 0):
+        month = today.month - offset
+        year = today.year
+        while month <= 0:
+            month += 12
+            year -= 1
+        periods.append(date(year, month, 1))
+    return periods
+
+
+def _join(*parts: str) -> str:
+    return "/".join(p.strip("/") for p in parts if p)
 
 
 def run_pipeline() -> dict:
@@ -15,28 +36,39 @@ def run_pipeline() -> dict:
         aws_secret_access_key=cfg.aws_secret_access_key,
     )
 
-    # Discover & download latest file
-    meta = source.find_latest()
-    buf = source.download(meta.key)
+    now = datetime.now(timezone.utc)
+    run_id = f"{now.strftime('%Y%m%d')}-{int(now.timestamp())}"
 
-    # Derive destination blob name (strip leading path, keep filename)
-    filename = meta.key.split("/")[-1]
-    dest_blob_name = f"{cfg.gcs_destination_prefix.rstrip('/')}/{filename}" if cfg.gcs_destination_prefix else filename
+    results = []
+    for period in billing_periods(now.date()):
+        partition = f"BILLING_PERIOD={period.strftime('%Y-%m')}"
+        s3_prefix = _join(cfg.source_prefix, cfg.export_name, "data", partition) + "/"
+        gcs_base = _join(cfg.gcs_destination_prefix, cfg.export_name, "data", run_id, partition)
 
-    # Upload to GCS
-    gcs_uri = upload_to_gcs(buf, gcs_bucket=cfg.gcs_bucket, dest_blob_name=dest_blob_name)
+        objects = source.list_partition(s3_prefix)
+        gcs_uris = []
+        for obj in objects:
+            filename = obj.key.rsplit("/", 1)[-1]
+            dest_blob = f"{gcs_base}/{filename}"
+            gcs_uri = upload_to_gcs(source.stream(obj.key), cfg.gcs_bucket, dest_blob)
+            gcs_uris.append(gcs_uri)
 
-    # Load into BigQuery
-    run_load_job(
-        gcs_uri=gcs_uri,
-        project_id=cfg.bq_project_id,
-        dataset_id=cfg.bq_dataset_id,
-        table_id=cfg.bq_table_id,
-    )
+        wildcard = f"gs://{cfg.gcs_bucket}/{gcs_base}/**"
+        run_load_job(
+            gcs_uri=wildcard,
+            project_id=cfg.bq_project_id,
+            dataset_id=cfg.bq_dataset_id,
+            table_id=cfg.bq_table_id,
+            partition_date=period,
+        )
+        results.append({
+            "partition": partition,
+            "files": len(gcs_uris),
+            "gcs_uris": gcs_uris,
+        })
 
     return {
-        "source_key": meta.key,
-        "last_modified": meta.last_modified.isoformat(),
-        "gcs_uri": gcs_uri,
+        "run_id": run_id,
+        "periods": results,
         "bq_table": f"{cfg.bq_project_id}.{cfg.bq_dataset_id}.{cfg.bq_table_id}",
     }
