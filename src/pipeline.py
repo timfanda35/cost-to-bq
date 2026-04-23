@@ -46,10 +46,8 @@ def run_pipeline(export_name: str | None = None, partition: str | None = None) -
     if partition is not None:
         parsed = datetime.strptime(partition, "%Y-%m").date().replace(day=1)
         periods = [parsed]
-        current_month = None  # explicit partition: always raise if files not found
     else:
         periods = billing_periods(now.date())
-        current_month = periods[-1]
 
     results = []
     for period in periods:
@@ -60,10 +58,8 @@ def run_pipeline(export_name: str | None = None, partition: str | None = None) -
         try:
             objects = source.list_partition(s3_prefix)
         except FileNotFoundError:
-            if period == current_month:
-                logger.warning("No files found for current month %s in S3; skipping", period_label)
-                continue
-            raise
+            logger.warning("No files found for month %s in S3; skipping", period_label)
+            continue
         gcs_uris = []
         for obj in objects:
             filename = obj.key.rsplit("/", 1)[-1]
@@ -71,7 +67,7 @@ def run_pipeline(export_name: str | None = None, partition: str | None = None) -
             gcs_uri = upload_to_gcs(source.stream(obj.key), cfg.gcs_bucket, dest_blob)
             gcs_uris.append(gcs_uri)
 
-        wildcard = f"gs://{cfg.gcs_bucket}/{gcs_base}/**"
+        wildcard = f"gs://{cfg.gcs_bucket}/{gcs_base}/*.parquet"
         run_load_job(
             gcs_uri=wildcard,
             project_id=cfg.bq_project_id,

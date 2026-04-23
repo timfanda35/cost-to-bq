@@ -104,7 +104,7 @@ def test_pipeline_processes_three_billing_periods(monkeypatch):
     assert bq_calls[1].kwargs["partition_date"] == date(2026, 3, 1)
     assert bq_calls[2].kwargs["partition_date"] == date(2026, 4, 1)
     for c in bq_calls:
-        assert c.kwargs["gcs_uri"].endswith("/**")
+        assert c.kwargs["gcs_uri"].endswith("/*.parquet")
 
 
 def test_pipeline_result_contains_per_period_info(monkeypatch):
