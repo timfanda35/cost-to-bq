@@ -8,7 +8,7 @@ A FastAPI service that extracts billing files from AWS S3 (Cost and Usage Report
 S3 (CUR Hive partitions)  →  GCS (staging)  →  BigQuery (partitioned WRITE_TRUNCATE)
 ```
 
-Each run loads **3 billing periods** (current month + previous two). For each period it finds all `.parquet` files under the CUR Hive partition path, uploads them to GCS, then replaces that month's BigQuery partition.
+By default each run loads **3 billing periods** (current month + previous two). The `/run` endpoint also accepts optional parameters to process a specific export or a single billing period.
 
 ## Prerequisites
 
@@ -56,8 +56,19 @@ Test the endpoints:
 curl http://localhost:8080/health
 # {"status": "ok"}
 
+# Default run: current month + previous two
 curl -X POST http://localhost:8080/run
-# {"run_id": "20240115-1705300800", "periods": [...], "bq_table": "project.dataset.table"}
+# {"run_id": "20240115-1705300800", "export_name": "my-export", "periods": [...], "bq_table": "project.dataset.table"}
+
+# Run a single specific partition
+curl -X POST http://localhost:8080/run \
+  -H 'Content-Type: application/json' \
+  -d '{"partition": "2024-01"}'
+
+# Override the export name and partition
+curl -X POST http://localhost:8080/run \
+  -H 'Content-Type: application/json' \
+  -d '{"export_name": "other-export", "partition": "2024-01"}'
 ```
 
 ## Running Tests
@@ -133,11 +144,19 @@ Returns service health status.
 
 ### `POST /run`
 
-Runs the ETL pipeline for the current and previous two billing months. Returns a summary per period.
+Runs the ETL pipeline. Accepts an optional JSON body:
+
+| Field | Type | Description |
+|---|---|---|
+| `export_name` | string | Override the `EXPORT_NAME` env var for this run |
+| `partition` | string | Process only this month (`YYYY-MM`, e.g. `"2024-01"`). Omit to run the default 3-period window. |
+
+Returns a summary per period:
 
 ```json
 {
   "run_id": "20240115-1705300800",
+  "export_name": "my-export",
   "periods": [
     {
       "partition": "BILLING_PERIOD=2023-11",
