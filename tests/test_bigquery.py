@@ -32,6 +32,7 @@ def test_load_job_succeeds():
     assert args[1] == "my-project.billing.daily"
     assert kwargs["job_config"].source_format == bigquery.SourceFormat.PARQUET
     assert kwargs["job_config"].write_disposition == bigquery.WriteDisposition.WRITE_TRUNCATE
+    assert kwargs["job_config"].time_partitioning.type_ == bigquery.TimePartitioningType.MONTH
     assert kwargs["job_config"].time_partitioning.field == "bill_billing_period_start_date"
     assert kwargs["job_config"].clustering_fields == ["line_item_usage_start_date"]
     bq_client.schema_from_json.assert_called_once_with(_SCHEMA_PATH)
@@ -53,7 +54,7 @@ def test_load_job_with_partition_date_uses_decorator():
         )
 
     args, _ = bq_client.load_table_from_uri.call_args
-    assert args[1] == "my-project.billing.daily$20240201"
+    assert args[1] == "my-project.billing.daily$202402"
 
 
 def test_load_job_raises_on_error():

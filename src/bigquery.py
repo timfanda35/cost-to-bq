@@ -20,7 +20,7 @@ def run_load_job(
     """
     client = bigquery.Client(project=project_id)
     if partition_date:
-        table_ref = f"{project_id}.{dataset_id}.{table_id}${partition_date.strftime('%Y%m%d')}"
+        table_ref = f"{project_id}.{dataset_id}.{table_id}${partition_date.strftime('%Y%m')}"
     else:
         table_ref = f"{project_id}.{dataset_id}.{table_id}"
 
@@ -29,7 +29,10 @@ def run_load_job(
         source_format=bigquery.SourceFormat.PARQUET,
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
         schema=schema,
-        time_partitioning=bigquery.TimePartitioning(field="bill_billing_period_start_date"),
+        time_partitioning=bigquery.TimePartitioning(
+            type_=bigquery.TimePartitioningType.MONTH,
+            field="bill_billing_period_start_date",
+        ),
         clustering_fields=["line_item_usage_start_date"],
     )
 
