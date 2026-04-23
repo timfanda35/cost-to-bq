@@ -46,7 +46,7 @@ def run_pipeline(export_name: str | None = None, partition: str | None = None) -
     if partition is not None:
         parsed = datetime.strptime(partition, "%Y-%m").date().replace(day=1)
         periods = [parsed]
-        current_month = billing_periods(now.date())[-1]
+        current_month = None  # explicit partition: always raise if files not found
     else:
         periods = billing_periods(now.date())
         current_month = periods[-1]

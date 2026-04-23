@@ -149,7 +149,7 @@ Runs the ETL pipeline. Accepts an optional JSON body:
 | Field | Type | Description |
 |---|---|---|
 | `export_name` | string | Override the `EXPORT_NAME` env var for this run |
-| `partition` | string | Process only this month (`YYYY-MM`, e.g. `"2024-01"`). Omit to run the default 3-period window. |
+| `partition` | string | Process only this month (`YYYY-MM`, e.g. `"2024-01"`). Omit to run the default 3-period window. If the partition has no files, the request fails with an error. |
 
 Returns a summary per period:
 

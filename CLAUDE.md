@@ -36,7 +36,7 @@ S3 (CUR Hive partitions)  →  GCS (staging)  →  BigQuery (partitioned WRITE_T
 **Key behaviors:**
 - Only `SOURCE_TYPE=s3` is supported; `Config.__init__` raises `ValueError` for any other value (Azure support was removed)
 - By default each run loads **3 billing periods**: the current month and the previous two, computed by `billing_periods()` in `src/pipeline.py`
-- `POST /run` accepts an optional JSON body: `export_name` (overrides `EXPORT_NAME` env var) and `partition` (`YYYY-MM` string; when set, only that single period is processed)
+- `POST /run` accepts an optional JSON body: `export_name` (overrides `EXPORT_NAME` env var) and `partition` (`YYYY-MM` string; when set, only that single period is processed and `FileNotFoundError` always raises — no silent skip)
 - S3 paths follow the AWS CUR Hive-partition layout: `{SOURCE_PREFIX}/{EXPORT_NAME}/data/BILLING_PERIOD=YYYY-MM/`; all `.parquet` files in each partition are loaded
 - BigQuery loads target a date partition decorator (`table$YYYYMMDD`) with `WRITE_TRUNCATE` + `autodetect=True`, replacing only that month's partition
 - GCS staging path includes a `run_id` timestamp component: `{GCS_DESTINATION_PREFIX}/{EXPORT_NAME}/data/{run_id}/BILLING_PERIOD=YYYY-MM/`
