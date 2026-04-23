@@ -1,9 +1,12 @@
+import logging
 from datetime import date, datetime, timezone
 
 from src.config import Config
 from src.sources.s3 import S3Source
 from src.gcs import upload_to_gcs
 from src.bigquery import run_load_job
+
+logger = logging.getLogger(__name__)
 
 
 def billing_periods(today: date | None = None) -> list[date]:
@@ -39,13 +42,22 @@ def run_pipeline() -> dict:
     now = datetime.now(timezone.utc)
     run_id = f"{now.strftime('%Y%m%d')}-{int(now.timestamp())}"
 
+    periods = billing_periods(now.date())
+    current_month = periods[-1]
+
     results = []
-    for period in billing_periods(now.date()):
+    for period in periods:
         partition = f"BILLING_PERIOD={period.strftime('%Y-%m')}"
         s3_prefix = _join(cfg.source_prefix, cfg.export_name, "data", partition) + "/"
         gcs_base = _join(cfg.gcs_destination_prefix, cfg.export_name, "data", run_id, partition)
 
-        objects = source.list_partition(s3_prefix)
+        try:
+            objects = source.list_partition(s3_prefix)
+        except FileNotFoundError:
+            if period == current_month:
+                logger.warning("No files found for current month %s in S3; skipping", partition)
+                continue
+            raise
         gcs_uris = []
         for obj in objects:
             filename = obj.key.rsplit("/", 1)[-1]
