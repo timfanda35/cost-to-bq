@@ -33,7 +33,7 @@ def run_load_job(
             type_=bigquery.TimePartitioningType.MONTH,
             field="bill_billing_period_start_date",
         ),
-        clustering_fields=["line_item_usage_start_date"],
+        clustering_fields=["line_item_usage_start_date", "line_item_usage_account_id"],
     )
 
     job = client.load_table_from_uri(gcs_uri, table_ref, job_config=job_config)
