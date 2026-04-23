@@ -32,7 +32,7 @@ Copy `.env.example` to `.env` and fill in the values.
 | `GCS_DESTINATION_PREFIX` | No | `""` | Path prefix in GCS (e.g. `billing/`) |
 | `BQ_PROJECT_ID` | Yes | — | GCP project for BigQuery |
 | `BQ_DATASET_ID` | Yes | — | BigQuery dataset name |
-| `BQ_TABLE_ID` | Yes | — | BigQuery table name (must be date-partitioned) |
+| `BQ_TABLE_ID` | Yes | — | BigQuery table name (partitioned by month on `bill_billing_period_start_date`, clustered on `line_item_usage_start_date`, `line_item_usage_account_id`) |
 | `AWS_REGION` | Yes | — | AWS region (e.g. `us-east-1`) |
 | `AWS_ACCESS_KEY_ID` | No | — | AWS key ID; uses instance role if omitted |
 | `AWS_SECRET_ACCESS_KEY` | No | — | Required if `AWS_ACCESS_KEY_ID` is set |

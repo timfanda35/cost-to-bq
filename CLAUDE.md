@@ -38,7 +38,7 @@ S3 (CUR Hive partitions)  →  GCS (staging)  →  BigQuery (partitioned WRITE_T
 - By default each run loads **3 billing periods**: the current month and the previous two, computed by `billing_periods()` in `src/pipeline.py`
 - `POST /run` accepts an optional JSON body: `export_name` (overrides `EXPORT_NAME` env var) and `partition` (`YYYY-MM` string; when set, only that single period is processed; missing files are silently skipped with a warning, same as the default multi-period run)
 - S3 paths follow the AWS CUR Hive-partition layout: `{SOURCE_PREFIX}/{EXPORT_NAME}/data/BILLING_PERIOD=YYYY-MM/`; all `.parquet` files in each partition are loaded
-- BigQuery loads target a date partition decorator (`table$YYYYMMDD`) with `WRITE_TRUNCATE` + `autodetect=True`, replacing only that month's partition
+- BigQuery loads use an explicit schema (`src/bq_schema/aws-cur2-parquet.json`), target a month partition decorator (`table$YYYYMM`) with `WRITE_TRUNCATE`, MONTH partitioning on `bill_billing_period_start_date`, and clustering on `["line_item_usage_start_date", "line_item_usage_account_id"]`
 - GCS staging path includes a `run_id` timestamp component: `{GCS_DESTINATION_PREFIX}/{EXPORT_NAME}/data/{run_id}/BILLING_PERIOD=YYYY-MM/`
 - `S3Source` uses instance role credentials if `AWS_ACCESS_KEY_ID` is not set
 
