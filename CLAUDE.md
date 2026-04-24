@@ -41,6 +41,7 @@ S3 (CUR Hive partitions)  →  GCS (staging)  →  BigQuery (partitioned WRITE_T
 - BigQuery loads use an explicit schema (`src/bq_schema/aws-cur2-parquet.json`), target a month partition decorator (`table$YYYYMM`) with `WRITE_TRUNCATE`, MONTH partitioning on `bill_billing_period_start_date`, and clustering on `["line_item_usage_start_date", "line_item_usage_account_id"]`
 - GCS staging path includes a `run_id` timestamp component: `{GCS_DESTINATION_PREFIX}/{EXPORT_NAME}/data/{run_id}/BILLING_PERIOD=YYYY-MM/`
 - `S3Source` uses instance role credentials if `AWS_ACCESS_KEY_ID` is not set
+- `S3Source` passes `endpoint_url` to `boto3.client()` when `S3_ENDPOINT_URL` is set, enabling AWS VPC/PrivateLink endpoints; omitting the var uses the default public AWS endpoint
 
 **Source abstraction:** `src/sources/base.py` defines `ObjectMeta` and was designed for multiple source types. Only `S3Source` is implemented.
 

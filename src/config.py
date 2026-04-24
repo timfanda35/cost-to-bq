@@ -21,6 +21,7 @@ class Config:
         self.aws_region = self._require("AWS_REGION")
         self.aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
         self.aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+        self.s3_endpoint_url = os.environ.get("S3_ENDPOINT_URL")
 
     def __repr__(self) -> str:
         return (

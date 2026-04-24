@@ -36,6 +36,7 @@ Copy `.env.example` to `.env` and fill in the values.
 | `AWS_REGION` | Yes | — | AWS region (e.g. `us-east-1`) |
 | `AWS_ACCESS_KEY_ID` | No | — | AWS key ID; uses instance role if omitted |
 | `AWS_SECRET_ACCESS_KEY` | No | — | Required if `AWS_ACCESS_KEY_ID` is set |
+| `S3_ENDPOINT_URL` | No | — | Override the S3 endpoint (e.g. an AWS VPC/PrivateLink endpoint); omit to use the default public AWS endpoint |
 | `PORT` | No | `8080` | HTTP port for the uvicorn server |
 | `LOG_LEVEL` | No | `INFO` | Python log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 

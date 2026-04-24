@@ -91,3 +91,10 @@ def test_stream_returns_streaming_body():
 def test_init_raises_when_key_id_given_without_secret():
     with pytest.raises(ValueError, match="aws_secret_access_key"):
         S3Source(bucket="b", prefix="p", region="us-east-1", aws_access_key_id="id", aws_secret_access_key=None)
+
+
+def test_init_passes_endpoint_url_to_boto3():
+    with patch("src.sources.s3.boto3.client") as mock_client:
+        S3Source(bucket="b", prefix="p", region="us-east-1", endpoint_url="https://vpce-xxx.s3.us-east-1.vpce.amazonaws.com")
+    _, kwargs = mock_client.call_args
+    assert kwargs["endpoint_url"] == "https://vpce-xxx.s3.us-east-1.vpce.amazonaws.com"

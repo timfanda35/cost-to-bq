@@ -39,6 +39,7 @@ def run_pipeline(export_name: str | None = None, partition: str | None = None) -
         region=cfg.aws_region,
         aws_access_key_id=cfg.aws_access_key_id,
         aws_secret_access_key=cfg.aws_secret_access_key,
+        endpoint_url=cfg.s3_endpoint_url,
     )
 
     now = datetime.now(timezone.utc)

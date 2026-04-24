@@ -7,7 +7,8 @@ from .base import ObjectMeta
 class S3Source:
     def __init__(self, bucket: str, prefix: str, region: str,
                  aws_access_key_id: str | None = None,
-                 aws_secret_access_key: str | None = None):
+                 aws_secret_access_key: str | None = None,
+                 endpoint_url: str | None = None):
         self._bucket = bucket
         self._prefix = prefix
         kwargs = {"region_name": region}
@@ -16,6 +17,8 @@ class S3Source:
                 raise ValueError("aws_secret_access_key must be provided with aws_access_key_id")
             kwargs["aws_access_key_id"] = aws_access_key_id
             kwargs["aws_secret_access_key"] = aws_secret_access_key
+        if endpoint_url is not None:
+            kwargs["endpoint_url"] = endpoint_url
         self._client = boto3.client("s3", **kwargs)
 
     def list_partition(self, partition_prefix: str) -> list[ObjectMeta]:
