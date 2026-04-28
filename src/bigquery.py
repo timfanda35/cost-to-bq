@@ -3,7 +3,7 @@ from datetime import date
 from pathlib import Path
 from google.cloud import bigquery
 
-_SCHEMA_PATH = Path(__file__).parent / "bq_schema" / "aws-cur2-parquet.json"
+_SCHEMA_PATH = Path(__file__).parent / "bq_schema" / "aws-cur-2.0-parquet.json"
 
 logger = logging.getLogger(__name__)
 

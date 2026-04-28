@@ -10,6 +10,15 @@ S3 (CUR Hive partitions)  →  GCS (staging)  →  BigQuery (partitioned WRITE_T
 
 By default each run loads **3 billing periods** (current month + previous two). The `/run` endpoint also accepts optional parameters to process a specific export or a single billing period.
 
+## BigQuery Schemas
+
+Explicit schemas for BigQuery loads are stored in `src/bq_schema/`:
+
+| File | Format |
+|---|---|
+| `aws-cur-2.0-parquet.json` | AWS Cost and Usage Report (CUR) 2.0 — Parquet |
+| `aws-focus-1.2-parquet.json` | AWS FOCUS 1.2 — Parquet |
+
 ## Prerequisites
 
 - Python 3.11+
