@@ -56,6 +56,27 @@
     "fields": []
   },
   {
+    "name": "capacity_reservation_capacity_reservation_arn",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "capacity_reservation_capacity_reservation_status",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "capacity_reservation_capacity_reservation_type",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
     "name": "cost_category",
     "mode": "NULLABLE",
     "type": "RECORD",
@@ -166,6 +187,13 @@
   },
   {
     "name": "line_item_currency_code",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "line_item_iam_principal",
     "mode": "NULLABLE",
     "type": "STRING",
     "description": "",
@@ -891,6 +919,83 @@
   },
   {
     "name": "savings_plan_used_commitment",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_actual_usage",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_net_split_cost",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_net_unused_cost",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_parent_resource_id",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_public_on_demand_split_cost",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_public_on_demand_unused_cost",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_reserved_usage",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_split_cost",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_split_usage",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_split_usage_ratio",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "split_line_item_unused_cost",
     "mode": "NULLABLE",
     "type": "FLOAT",
     "description": "",
