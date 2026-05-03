@@ -121,6 +121,7 @@ def run_pipeline(export_name: str | None = None, partition: str | None = None) -
                 run_id=run_id,
                 export_name=resolved_export_name,
                 partition_label=partition_str,
+                kms_key_name=cfg.bq_cmek_key_name,
             )
 
             periods_loaded += 1

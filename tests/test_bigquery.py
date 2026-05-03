@@ -105,6 +105,43 @@ def test_load_job_logs_submitted_and_complete(caplog):
     assert complete[0].output_bytes == 1048576
 
 
+def test_load_job_sets_cmek_when_provided():
+    job = _mock_job()
+    bq_client = MagicMock()
+    bq_client.load_table_from_uri.return_value = job
+    kms_key = "projects/my-project/locations/us/keyRings/ring/cryptoKeys/key"
+
+    with patch("src.bigquery.bigquery.Client", return_value=bq_client):
+        run_load_job(
+            gcs_uri="gs://bucket/billing/2024-04-15.parquet",
+            project_id="my-project",
+            dataset_id="billing",
+            table_id="daily",
+            kms_key_name=kms_key,
+        )
+
+    _, kwargs = bq_client.load_table_from_uri.call_args
+    enc = kwargs["job_config"].destination_encryption_configuration
+    assert enc.kms_key_name == kms_key
+
+
+def test_load_job_no_cmek_by_default():
+    job = _mock_job()
+    bq_client = MagicMock()
+    bq_client.load_table_from_uri.return_value = job
+
+    with patch("src.bigquery.bigquery.Client", return_value=bq_client):
+        run_load_job(
+            gcs_uri="gs://bucket/billing/2024-04-15.parquet",
+            project_id="my-project",
+            dataset_id="billing",
+            table_id="daily",
+        )
+
+    _, kwargs = bq_client.load_table_from_uri.call_args
+    assert kwargs["job_config"].destination_encryption_configuration is None
+
+
 def test_load_job_logs_failed_on_error(caplog):
     job = _mock_job(error="Bad schema")
     bq_client = MagicMock()

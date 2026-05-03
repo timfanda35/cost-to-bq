@@ -18,6 +18,7 @@ def run_load_job(
     run_id: str = "",
     export_name: str = "",
     partition_label: str = "",
+    kms_key_name: str | None = None,
 ) -> None:
     """Load parquet file(s) from GCS into BigQuery (WRITE_TRUNCATE).
 
@@ -42,6 +43,10 @@ def run_load_job(
         ),
         clustering_fields=["line_item_usage_start_date", "line_item_usage_account_id"],
     )
+    if kms_key_name:
+        job_config.destination_encryption_configuration = bigquery.EncryptionConfiguration(
+            kms_key_name=kms_key_name
+        )
 
     job = client.load_table_from_uri(gcs_uri, table_ref, job_config=job_config)
     logger.info("bq.job.submitted", extra={

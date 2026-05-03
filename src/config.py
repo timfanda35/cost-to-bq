@@ -22,6 +22,7 @@ class Config:
         self.aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
         self.aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
         self.s3_endpoint_url = os.environ.get("S3_ENDPOINT_URL")
+        self.bq_cmek_key_name = os.environ.get("BQ_CMEK_KEY_NAME")
 
     def __repr__(self) -> str:
         return (
