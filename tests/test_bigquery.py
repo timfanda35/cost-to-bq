@@ -1,10 +1,9 @@
 import logging
 from datetime import date
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
 from google.cloud import bigquery
-from src.bigquery import run_load_job, _SCHEMA_PATH
+from src.bigquery import run_load_job, CUR2_SCHEMA, FOCUS12_SCHEMA
 
 
 def _mock_job(error=None):
@@ -28,6 +27,7 @@ def test_load_job_succeeds():
             project_id="my-project",
             dataset_id="billing",
             table_id="daily",
+            schema_config=CUR2_SCHEMA,
         )
     mock_client_cls.assert_called_once_with(project="my-project")
 
@@ -39,7 +39,7 @@ def test_load_job_succeeds():
     assert kwargs["job_config"].time_partitioning.type_ == bigquery.TimePartitioningType.MONTH
     assert kwargs["job_config"].time_partitioning.field == "bill_billing_period_start_date"
     assert kwargs["job_config"].clustering_fields == ["line_item_usage_start_date", "line_item_usage_account_id"]
-    bq_client.schema_from_json.assert_called_once_with(_SCHEMA_PATH)
+    bq_client.schema_from_json.assert_called_once_with(CUR2_SCHEMA.schema_path)
     job.result.assert_called_once_with(timeout=3300)
 
 
@@ -55,6 +55,7 @@ def test_load_job_with_partition_date_uses_decorator():
             dataset_id="billing",
             table_id="daily",
             partition_date=date(2024, 2, 1),
+            schema_config=CUR2_SCHEMA,
         )
 
     args, _ = bq_client.load_table_from_uri.call_args
@@ -73,6 +74,7 @@ def test_load_job_raises_on_error():
                 project_id="my-project",
                 dataset_id="billing",
                 table_id="daily",
+                schema_config=CUR2_SCHEMA,
             )
     job.result.assert_called_once()
 
@@ -92,6 +94,7 @@ def test_load_job_logs_submitted_and_complete(caplog):
             run_id="20260423-123",
             export_name="my-export",
             partition_label="2026-04",
+            schema_config=CUR2_SCHEMA,
         )
 
     submitted = [r for r in caplog.records if getattr(r, "log_event", None) == "bq.job.submitted"]
@@ -118,6 +121,7 @@ def test_load_job_sets_cmek_when_provided():
             dataset_id="billing",
             table_id="daily",
             kms_key_name=kms_key,
+            schema_config=CUR2_SCHEMA,
         )
 
     _, kwargs = bq_client.load_table_from_uri.call_args
@@ -136,6 +140,7 @@ def test_load_job_no_cmek_by_default():
             project_id="my-project",
             dataset_id="billing",
             table_id="daily",
+            schema_config=CUR2_SCHEMA,
         )
 
     _, kwargs = bq_client.load_table_from_uri.call_args
@@ -158,9 +163,30 @@ def test_load_job_logs_failed_on_error(caplog):
                 run_id="20260423-123",
                 export_name="my-export",
                 partition_label="2026-04",
+                schema_config=CUR2_SCHEMA,
             )
 
     failed = [r for r in caplog.records if getattr(r, "log_event", None) == "bq.job.failed"]
     assert len(failed) == 1
     assert failed[0].job_id == "test-job-id-123"
     assert any("Bad schema" in str(e) for e in failed[0].errors)
+
+
+def test_load_job_focus12_uses_correct_schema():
+    job = _mock_job()
+    bq_client = MagicMock()
+    bq_client.load_table_from_uri.return_value = job
+
+    with patch("src.bigquery.bigquery.Client", return_value=bq_client):
+        run_load_job(
+            gcs_uri="gs://bucket/billing/2024-04-15.parquet",
+            project_id="my-project",
+            dataset_id="billing",
+            table_id="daily",
+            schema_config=FOCUS12_SCHEMA,
+        )
+
+    _, kwargs = bq_client.load_table_from_uri.call_args
+    assert kwargs["job_config"].time_partitioning.field == "BillingPeriodStart"
+    assert kwargs["job_config"].clustering_fields == ["BillingAccountId"]
+    bq_client.schema_from_json.assert_called_once_with(FOCUS12_SCHEMA.schema_path)

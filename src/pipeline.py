@@ -5,7 +5,7 @@ from datetime import date, datetime, timezone
 from src.config import Config
 from src.sources.s3 import S3Source
 from src.gcs import upload_to_gcs
-from src.bigquery import run_load_job
+from src.bigquery import run_load_job, SCHEMA_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ def _join(*parts: str) -> str:
 
 def run_pipeline(export_name: str | None = None, partition: str | None = None) -> dict:
     cfg = Config()
+    schema_config = SCHEMA_MAP[cfg.billing_schema]
     resolved_export_name = export_name or cfg.export_name
 
     source = S3Source(
@@ -56,6 +57,7 @@ def run_pipeline(export_name: str | None = None, partition: str | None = None) -
         "log_event": "pipeline.started",
         "run_id": run_id,
         "export_name": resolved_export_name,
+        "billing_schema": cfg.billing_schema,
         "periods": [p.strftime("%Y-%m") for p in periods],
     })
 
@@ -118,6 +120,7 @@ def run_pipeline(export_name: str | None = None, partition: str | None = None) -
                 dataset_id=cfg.bq_dataset_id,
                 table_id=cfg.bq_table_id,
                 partition_date=period,
+                schema_config=schema_config,
                 run_id=run_id,
                 export_name=resolved_export_name,
                 partition_label=partition_str,

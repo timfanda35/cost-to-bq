@@ -1,9 +1,33 @@
 import logging
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from google.cloud import bigquery
 
-_SCHEMA_PATH = Path(__file__).parent / "bq_schema" / "aws-cur-2.0-parquet.json"
+
+@dataclass
+class SchemaConfig:
+    schema_path: Path
+    partition_field: str
+    cluster_fields: list[str]
+
+
+CUR2_SCHEMA = SchemaConfig(
+    schema_path=Path(__file__).parent / "bq_schema" / "aws-cur-2.0-parquet.json",
+    partition_field="bill_billing_period_start_date",
+    cluster_fields=["line_item_usage_start_date", "line_item_usage_account_id"],
+)
+
+FOCUS12_SCHEMA = SchemaConfig(
+    schema_path=Path(__file__).parent / "bq_schema" / "aws-focus-1.2-parquet.json",
+    partition_field="BillingPeriodStart",
+    cluster_fields=["BillingAccountId"],
+)
+
+SCHEMA_MAP: dict[str, SchemaConfig] = {
+    "cur2": CUR2_SCHEMA,
+    "focus1.2": FOCUS12_SCHEMA,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +39,7 @@ def run_load_job(
     table_id: str,
     partition_date: date | None = None,
     *,
+    schema_config: SchemaConfig,
     run_id: str = "",
     export_name: str = "",
     partition_label: str = "",
@@ -32,16 +57,16 @@ def run_load_job(
     else:
         table_ref = f"{project_id}.{dataset_id}.{table_id}"
 
-    schema = client.schema_from_json(_SCHEMA_PATH)
+    schema = client.schema_from_json(schema_config.schema_path)
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.PARQUET,
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
         schema=schema,
         time_partitioning=bigquery.TimePartitioning(
             type_=bigquery.TimePartitioningType.MONTH,
-            field="bill_billing_period_start_date",
+            field=schema_config.partition_field,
         ),
-        clustering_fields=["line_item_usage_start_date", "line_item_usage_account_id"],
+        clustering_fields=schema_config.cluster_fields,
     )
     if kms_key_name:
         job_config.destination_encryption_configuration = bigquery.EncryptionConfiguration(

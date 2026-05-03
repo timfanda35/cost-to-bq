@@ -68,3 +68,25 @@ def test_repr_does_not_expose_credentials(monkeypatch):
     r = repr(c)
     assert "topsecret" not in r
     assert "myid" not in r
+
+
+def test_billing_schema_defaults_to_cur2(monkeypatch):
+    for k, v in _set_common({"AWS_REGION": "us-east-1"}).items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("BILLING_SCHEMA", raising=False)
+    c = cfg.Config()
+    assert c.billing_schema == "cur2"
+
+
+def test_billing_schema_focus12(monkeypatch):
+    for k, v in _set_common({"AWS_REGION": "us-east-1", "BILLING_SCHEMA": "focus1.2"}).items():
+        monkeypatch.setenv(k, v)
+    c = cfg.Config()
+    assert c.billing_schema == "focus1.2"
+
+
+def test_invalid_billing_schema_raises(monkeypatch):
+    for k, v in _set_common({"AWS_REGION": "us-east-1", "BILLING_SCHEMA": "bad"}).items():
+        monkeypatch.setenv(k, v)
+    with pytest.raises(ValueError, match="BILLING_SCHEMA"):
+        cfg.Config()

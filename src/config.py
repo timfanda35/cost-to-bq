@@ -24,6 +24,11 @@ class Config:
         self.s3_endpoint_url = os.environ.get("S3_ENDPOINT_URL")
         self.bq_cmek_key_name = os.environ.get("BQ_CMEK_KEY_NAME")
 
+        billing_schema = os.environ.get("BILLING_SCHEMA", "cur2")
+        if billing_schema not in ("cur2", "focus1.2"):
+            raise ValueError(f"BILLING_SCHEMA must be 'cur2' or 'focus1.2', got {billing_schema!r}")
+        self.billing_schema = billing_schema
+
     def __repr__(self) -> str:
         return (
             f"Config(source_type={self.source_type!r}, "
