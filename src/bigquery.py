@@ -5,23 +5,23 @@ from pathlib import Path
 from google.cloud import bigquery
 
 
-@dataclass
+@dataclass(frozen=True)
 class SchemaConfig:
     schema_path: Path
     partition_field: str
-    cluster_fields: list[str]
+    cluster_fields: tuple[str, ...]
 
 
 CUR2_SCHEMA = SchemaConfig(
     schema_path=Path(__file__).parent / "bq_schema" / "aws-cur-2.0-parquet.json",
     partition_field="bill_billing_period_start_date",
-    cluster_fields=["line_item_usage_start_date", "line_item_usage_account_id"],
+    cluster_fields=("line_item_usage_start_date", "line_item_usage_account_id"),
 )
 
 FOCUS12_SCHEMA = SchemaConfig(
     schema_path=Path(__file__).parent / "bq_schema" / "aws-focus-1.2-parquet.json",
     partition_field="BillingPeriodStart",
-    cluster_fields=["BillingAccountId"],
+    cluster_fields=("BillingAccountId",),
 )
 
 SCHEMA_MAP: dict[str, SchemaConfig] = {

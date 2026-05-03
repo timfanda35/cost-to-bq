@@ -38,11 +38,12 @@ S3 (CUR Hive partitions)  →  GCS (staging)  →  BigQuery (partitioned WRITE_T
 - By default each run loads **3 billing periods**: the current month and the previous two, computed by `billing_periods()` in `src/pipeline.py`
 - `POST /run` accepts an optional JSON body: `export_name` (overrides `EXPORT_NAME` env var) and `partition` (`YYYY-MM` string; when set, only that single period is processed; missing files are silently skipped with a warning, same as the default multi-period run)
 - S3 paths follow the AWS CUR Hive-partition layout: `{SOURCE_PREFIX}/{EXPORT_NAME}/data/BILLING_PERIOD=YYYY-MM/`; all `.parquet` files in each partition are loaded
-- BigQuery loads use an explicit schema (`src/bq_schema/aws-cur-2.0-parquet.json`), target a month partition decorator (`table$YYYYMM`) with `WRITE_TRUNCATE`, MONTH partitioning on `bill_billing_period_start_date`, and clustering on `["line_item_usage_start_date", "line_item_usage_account_id"]`
+- BigQuery loads use an explicit schema selected by `BILLING_SCHEMA` (see below), target a month partition decorator (`table$YYYYMM`) with `WRITE_TRUNCATE`, MONTH partitioning, and per-schema clustering fields
 - GCS staging path includes a `run_id` timestamp component: `{GCS_DESTINATION_PREFIX}/{EXPORT_NAME}/data/{run_id}/BILLING_PERIOD=YYYY-MM/`
 - `S3Source` uses instance role credentials if `AWS_ACCESS_KEY_ID` is not set
 - `S3Source` passes `endpoint_url` to `boto3.client()` when `S3_ENDPOINT_URL` is set, enabling AWS VPC/PrivateLink endpoints; omitting the var uses the default public AWS endpoint
 - `BQ_CMEK_KEY_NAME` (optional) — when set, attaches a Cloud KMS key as `destination_encryption_configuration` on the BigQuery load job; omitting it uses Google-managed encryption. Full KMS resource name required: `projects/{project}/locations/{location}/keyRings/{ring}/cryptoKeys/{key}`
+- `BILLING_SCHEMA` (optional, default `cur2`) — selects the BigQuery schema and partition/cluster config; valid values: `cur2` (AWS CUR 2.0, partition on `bill_billing_period_start_date`, cluster on `line_item_usage_start_date` + `line_item_usage_account_id`) and `focus1.2` (FOCUS 1.2, partition on `BillingPeriodStart`, cluster on `BillingAccountId`); schema files are in `src/bq_schema/`
 
 **Source abstraction:** `src/sources/base.py` defines `ObjectMeta` and was designed for multiple source types. Only `S3Source` is implemented.
 
