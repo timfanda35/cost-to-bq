@@ -164,6 +164,34 @@ def test_pipeline_logs_started_and_complete(monkeypatch, caplog):
     assert complete[0].periods_skipped == 0
 
 
+def test_pipeline_focus12_uses_lowercase_partition_prefix(monkeypatch):
+    env = _make_env()
+    env["BILLING_SCHEMA"] = "focus1.2"
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+
+    fixed_now = datetime(2026, 4, 23, 12, 0, 0, tzinfo=timezone.utc)
+    s3_source = MagicMock()
+    s3_source.list_partition.side_effect = [
+        [_make_obj("billing_period=2026-02", "part-0.parquet")],
+        [_make_obj("billing_period=2026-03", "part-0.parquet")],
+        [_make_obj("billing_period=2026-04", "part-0.parquet")],
+    ]
+    s3_source.stream.return_value = MagicMock()
+
+    with patch("src.pipeline.datetime") as mock_dt, \
+         patch("src.pipeline.S3Source", return_value=s3_source), \
+         patch("src.pipeline.upload_to_gcs", return_value="gs://dest-bucket/some/path"), \
+         patch("src.pipeline.run_load_job"):
+        mock_dt.now.return_value = fixed_now
+        run_pipeline()
+
+    list_calls = [c.args[0] for c in s3_source.list_partition.call_args_list]
+    assert list_calls[0] == "exports/my-export/data/billing_period=2026-02/"
+    assert list_calls[1] == "exports/my-export/data/billing_period=2026-03/"
+    assert list_calls[2] == "exports/my-export/data/billing_period=2026-04/"
+
+
 def test_pipeline_logs_period_skipped(monkeypatch, caplog):
     for k, v in _make_env().items():
         monkeypatch.setenv(k, v)

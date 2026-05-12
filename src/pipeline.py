@@ -67,7 +67,7 @@ def run_pipeline(export_name: str | None = None, partition: str | None = None) -
 
     try:
         for period in periods:
-            period_label = f"BILLING_PERIOD={period.strftime('%Y-%m')}"
+            period_label = f"{schema_config.partition_prefix}={period.strftime('%Y-%m')}"
             partition_str = period.strftime("%Y-%m")
             s3_prefix = _join(cfg.source_prefix, resolved_export_name, "data", period_label) + "/"
             gcs_base = _join(cfg.gcs_destination_prefix, resolved_export_name, "data", run_id, period_label)

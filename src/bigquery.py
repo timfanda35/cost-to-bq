@@ -10,18 +10,21 @@ class SchemaConfig:
     schema_path: Path
     partition_field: str
     cluster_fields: tuple[str, ...]
+    partition_prefix: str
 
 
 CUR2_SCHEMA = SchemaConfig(
     schema_path=Path(__file__).parent / "bq_schema" / "aws-cur-2.0-parquet.json",
     partition_field="bill_billing_period_start_date",
     cluster_fields=("line_item_usage_start_date", "line_item_usage_account_id"),
+    partition_prefix="BILLING_PERIOD",
 )
 
 FOCUS12_SCHEMA = SchemaConfig(
     schema_path=Path(__file__).parent / "bq_schema" / "aws-focus-1.2-parquet.json",
     partition_field="BillingPeriodStart",
     cluster_fields=("BillingAccountId",),
+    partition_prefix="billing_period",
 )
 
 SCHEMA_MAP: dict[str, SchemaConfig] = {
