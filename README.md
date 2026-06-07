@@ -1,5 +1,8 @@
 # billing-loader
 
+> [!IMPORTANT]
+> This project has moved to https://github.com/timfanda35/aws-cost-to-bq
+
 A FastAPI service that extracts billing files from AWS S3 (Cost and Usage Reports in Hive-partitioned format), stages them in Google Cloud Storage (GCS), and loads them into BigQuery. Designed to run on Cloud Run, triggered daily by Cloud Scheduler.
 
 ## Architecture
